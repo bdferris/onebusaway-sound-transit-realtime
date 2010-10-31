@@ -1,13 +1,36 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-  <parent>
-    <artifactId>onebusaway</artifactId>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <artifactId>onebusaway</artifactId>
+        <groupId>org.onebusaway</groupId>
+        <version>1.0.6</version>
+    </parent>
     <groupId>org.onebusaway</groupId>
-    <version>1.0.6</version>
-  </parent>
-  <groupId>org.onebusaway</groupId>
-  <artifactId>onebusaway-sound-transit-realtime</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
-  <name>onebusaway-sound-transit-realtime</name>
-  <description>Support for Sound Transit realtime data streams</description>
+    <artifactId>onebusaway-sound-transit-realtime</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>onebusaway-sound-transit-realtime</name>
+    <description>Support for Sound Transit realtime data streams</description>
+    <dependencies>
+        <dependency>
+            <groupId>org.onebusaway</groupId>
+            <artifactId>onebusaway-realtime-api</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.onebusaway</groupId>
+            <artifactId>onebusaway-transit-data-federation</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.httpcomponents</groupId>
+        	<artifactId>httpclient</artifactId>
+        	<version>4.0.3</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.samba.jcifs</groupId>
+        	<artifactId>jcifs</artifactId>
+        	<version>1.2.19</version>
+        </dependency>
+    </dependencies>
 </project>
