@@ -9,7 +9,8 @@ import org.onebusaway.gtfs.csv.schema.annotations.CsvFields;
     "vehicle_id", "route_id", "direction", "block", "service_type",
     "schedule_deviation", "timepoint_arrival_time", "timepoint_id",
     "timepoint_time", "lat", "lon", "time", "logon_route_id", "block_number",
-    "off_route", "run_id", "next_sign_timepoint_id", "next_sign"})
+    "off_route", "run_id", "next_sign_timepoint_id",
+    "destination_timepoint_id", "next_sign"})
 public class Record {
 
   private static final double LAT_MISSING_VALUE = 99.000000;
@@ -24,10 +25,10 @@ public class Record {
 
   private static final int SERVICE_TYPE_MISSING_VALUE = 99;
 
-  @CsvField(optional=true)
+  @CsvField(optional = true)
   private int vehicleId;
 
-  @CsvField(optional=true)
+  @CsvField(optional = true)
   private String routeId;
 
   /**
@@ -50,10 +51,10 @@ public class Record {
    * Identifies the work assigned to a bus (maximum of 6 digits). If this value
    * is unknown, this field is set to 999999.
    */
-  @CsvField(optional=true)
+  @CsvField(optional = true)
   private int block;
 
-  @CsvField(optional=true)
+  @CsvField(optional = true)
   private int serviceType = SERVICE_TYPE_MISSING_VALUE;
 
   /**
@@ -63,7 +64,7 @@ public class Record {
    * Show, No Response, Deahead, NoResponse, RSA Disable, etc), this field is
    * set to 99999.
    */
-  @CsvField(optional=true)
+  @CsvField(optional = true)
   private int scheduleDeviation = SCHEDULE_DEVIATION_MISSING_VALUE;
 
   /**
@@ -73,7 +74,7 @@ public class Record {
    * Response, Deahead, NoResponse, RSA Disable, etc), this field is set to
    * 9999.
    */
-  @CsvField(optional=true)
+  @CsvField(optional = true)
   private int timepointArrivalTime = TIMEPOINT_TIME_MISSING_VALUE;
 
   /**
@@ -89,38 +90,40 @@ public class Record {
    * current active schedule to which the vehicle is adhering. If this value is
    * unknown, this field is set to 9999.
    */
-  @CsvField(mapping = DateFieldMappingFactory.class,optional=true)
+  @CsvField(mapping = DateFieldMappingFactory.class, optional = true)
   @DateFormatAnnotation("yyyy-MM-dd HH:mm:ss.SSS")
   private long timepointTime;
 
-  @CsvField(optional=true)
+  @CsvField(optional = true)
   private double lat = LAT_MISSING_VALUE;
 
-  @CsvField(optional=true)
+  @CsvField(optional = true)
   private double lon = LON_MISSING_VALUE;
 
   /**
    * Time of receipt of the last location report from the vehicle. Time is in
    * seconds since 00:00:00 GMT January 1, 1970
    */
-  @CsvField(mapping = DateFieldMappingFactory.class,optional=true)
+  @CsvField(mapping = DateFieldMappingFactory.class, optional = true)
   @DateFormatAnnotation("yyyy-MM-dd HH:mm:ss.SSS")
   private long time;
 
-  @CsvField(optional=true)
+  @CsvField(optional = true)
   private int logonRouteId;
 
-  @CsvField(optional=true)
+  @CsvField(optional = true)
   private int blockNumber;
 
-  @CsvField(optional=true)
+  @CsvField(optional = true)
   private int offRoute;
 
-  @CsvField(optional=true)
+  @CsvField(optional = true)
   private int runId;
 
   @CsvField(optional = true)
   private String nextSignTimepointId;
+
+  private String destinationTimepointId;
 
   @CsvField(optional = true)
   private String nextSign;
@@ -311,6 +314,14 @@ public class Record {
 
   public void setNextSignTimepointId(String nextSignTimepointId) {
     this.nextSignTimepointId = nextSignTimepointId;
+  }
+
+  public String getDestinationTimepointId() {
+    return destinationTimepointId;
+  }
+
+  public void setDestinationTimepointId(String destinationTimepointId) {
+    this.destinationTimepointId = destinationTimepointId;
   }
 
   public String getNextSign() {
