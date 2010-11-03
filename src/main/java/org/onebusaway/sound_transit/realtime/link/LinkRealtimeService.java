@@ -422,14 +422,14 @@ public class LinkRealtimeService {
 
     if (scheduleTime < firstArrival) {
       ScheduledBlockLocation scheduledBlockLocation = _scheduledBlockLocationService.getScheduledBlockLocationFromScheduledTime(
-          stopTimes, firstArrival);
+          blockConfig, firstArrival);
       return new VehicleState(blockInstance, scheduledBlockLocation,
           scheduleTime, EVehiclePhase.LAYOVER_BEFORE, nextRecord.getTime(),
           vehicleRecords);
     }
 
     ScheduledBlockLocation scheduledBlockLocation = _scheduledBlockLocationService.getScheduledBlockLocationFromScheduledTime(
-        stopTimes, scheduleTime);
+        blockConfig, scheduleTime);
     return new VehicleState(blockInstance, scheduledBlockLocation,
         scheduleTime, EVehiclePhase.IN_PROGRESS, nextRecord.getTime(),
         vehicleRecords);
