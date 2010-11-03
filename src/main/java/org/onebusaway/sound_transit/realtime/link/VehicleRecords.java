@@ -19,11 +19,15 @@ public class VehicleRecords {
     _records.add(record);
     _blockStopTimes.add(blockStopTime);
   }
-  
+
   public List<Record> getRecords() {
     return _records;
   }
-  
+
+  public List<BlockStopTimeEntry> getBlockStopTimes() {
+    return _blockStopTimes;
+  }
+
   public Record getFirstRecord() {
     return _records.get(0);
   }
@@ -31,7 +35,7 @@ public class VehicleRecords {
   public Record getLastRecord() {
     return _records.get(_records.size() - 1);
   }
-  
+
   public BlockStopTimeEntry getFirstBlockStopTime() {
     return _blockStopTimes.get(0);
   }
