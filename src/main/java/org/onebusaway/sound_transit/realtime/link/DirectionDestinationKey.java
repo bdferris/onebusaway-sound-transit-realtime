@@ -28,6 +28,11 @@ class DirectionDestinationKey {
   public int getDirection() {
     return direction;
   }
+  
+  @Override
+  public String toString() {
+    return "DirectionDestinationKey(routeId=" + routeId + " destinationStopId=" + destinationStopId + " direction=" + direction +")";
+  }
 
   @Override
   public int hashCode() {
