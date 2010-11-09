@@ -21,6 +21,16 @@ public class VehicleState {
   public VehicleState(BlockInstance blockInstance,
       ScheduledBlockLocation blockLocation, int effectiveScheduleTime,
       EVehiclePhase phase, long updateTime, VehicleRecords records) {
+
+    if (blockInstance == null)
+      throw new IllegalStateException("blockInstance is null");
+    if (blockLocation == null)
+      throw new IllegalStateException("blockLocation is null");
+    if (phase == null)
+      throw new IllegalStateException("phase is null");
+    if (records == null)
+      throw new IllegalStateException("records is null");
+
     _blockInstance = blockInstance;
     _blockLocation = blockLocation;
     _effectiveScheduleTime = effectiveScheduleTime;

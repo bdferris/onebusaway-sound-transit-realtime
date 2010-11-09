@@ -591,7 +591,14 @@ public class LinkRealtimeService {
 
     @Override
     public void handleEntity(Object obj) {
-      _records.add((Record) obj);
+
+      Record record = (Record) obj;
+
+      // Prune the record if the predicted arrival time is in the past
+      if (record.getTimepointTime() < record.getTime() - 60 * 60 * 1000)
+        return;
+
+      _records.add(record);
     }
   }
 
