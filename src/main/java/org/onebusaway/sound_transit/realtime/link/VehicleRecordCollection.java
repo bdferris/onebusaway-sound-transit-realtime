@@ -5,13 +5,13 @@ import java.util.List;
 
 import org.onebusaway.transit_data_federation.services.transit_graph.BlockStopTimeEntry;
 
-public class VehicleRecords {
+public class VehicleRecordCollection {
 
   private List<Record> _records = new ArrayList<Record>();
 
   private List<BlockStopTimeEntry> _blockStopTimes = new ArrayList<BlockStopTimeEntry>();
 
-  public VehicleRecords(Record record, BlockStopTimeEntry blockStopTime) {
+  public VehicleRecordCollection(Record record, BlockStopTimeEntry blockStopTime) {
     addRecord(record, blockStopTime);
   }
 

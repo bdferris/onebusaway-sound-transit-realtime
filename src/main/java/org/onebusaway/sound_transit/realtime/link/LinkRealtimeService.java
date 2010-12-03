@@ -3,7 +3,6 @@ package org.onebusaway.sound_transit.realtime.link;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -23,10 +22,8 @@ import org.apache.http.auth.NTCredentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
-import org.onebusaway.collections.FactoryMap;
+import org.onebusaway.collections.MappingLibrary;
 import org.onebusaway.collections.Min;
-import org.onebusaway.collections.tuple.Pair;
-import org.onebusaway.collections.tuple.Tuples;
 import org.onebusaway.gtfs.csv.CsvEntityReader;
 import org.onebusaway.gtfs.csv.EntityHandler;
 import org.onebusaway.gtfs.model.AgencyAndId;
@@ -34,7 +31,6 @@ import org.onebusaway.realtime.api.EVehiclePhase;
 import org.onebusaway.realtime.api.TimepointPredictionRecord;
 import org.onebusaway.realtime.api.VehicleLocationListener;
 import org.onebusaway.realtime.api.VehicleLocationRecord;
-import org.onebusaway.transit_data_federation.services.AgencyAndIdLibrary;
 import org.onebusaway.transit_data_federation.services.blocks.BlockCalendarService;
 import org.onebusaway.transit_data_federation.services.blocks.BlockInstance;
 import org.onebusaway.transit_data_federation.services.blocks.ScheduledBlockLocation;
@@ -63,10 +59,6 @@ public class LinkRealtimeService {
 
   private ScheduledExecutorService _executor;
 
-  private Map<DirectionDestinationKey, List<VehicleInstance>> _vehiclesByDirectionDestination = new HashMap<DirectionDestinationKey, List<VehicleInstance>>();
-
-  private int _nextVehicleId = 1;
-
   private int _refreshInterval = 60;
 
   private String _url;
@@ -79,9 +71,11 @@ public class LinkRealtimeService {
 
   private String _domain;
 
-  private double _scheduleDeviationFactor = 0.25;
+  private String _agencyId = "40";
 
-  private Map<Pair<AgencyAndId>, Double> _segmetScheduleDeviationFactors = new HashMap<Pair<AgencyAndId>, Double>();
+  private String _stopAgencyId = "1";
+
+  private String _vehicleIdPrefix = "link_";
 
   @Autowired
   public void setVehicleLocationListener(
@@ -120,27 +114,20 @@ public class LinkRealtimeService {
     _useNtlm = useNtlm;
   }
 
+  public void setAgencyId(String agencyId) {
+    _agencyId = agencyId;
+  }
+
+  public void setStopAgencyId(String stopAgencyId) {
+    _stopAgencyId = stopAgencyId;
+  }
+
+  public void setVehicleIdPrefix(String vehicleIdPrefix) {
+    _vehicleIdPrefix = vehicleIdPrefix;
+  }
+
   public void setRefreshInterval(int refreshInterval) {
     _refreshInterval = refreshInterval;
-  }
-
-  public void setScheduleDeviationFactor(double scheduleDeviationFactor) {
-    _scheduleDeviationFactor = scheduleDeviationFactor;
-  }
-
-  /**
-   * 
-   * @param factors
-   */
-  public void setSegmetScheduleDeviationFactors(Map<String, Double> factors) {
-    for (Map.Entry<String, Double> entry : factors.entrySet()) {
-      String key = entry.getKey();
-      String[] tokens = key.split(",");
-      AgencyAndId fromStopId = AgencyAndIdLibrary.convertFromString(tokens[0]);
-      AgencyAndId toStopId = AgencyAndIdLibrary.convertFromString(tokens[1]);
-      Pair<AgencyAndId> pair = Tuples.pair(fromStopId, toStopId);
-      _segmetScheduleDeviationFactors.put(pair, entry.getValue());
-    }
   }
 
   @PostConstruct
@@ -166,99 +153,59 @@ public class LinkRealtimeService {
 
     System.out.println("====== CYCLE ======");
 
+    Map<Integer, List<Record>> recordsByVehicleId = MappingLibrary.mapToValueList(
+        records, "vehicleId");
+
     List<VehicleLocationRecord> results = new ArrayList<VehicleLocationRecord>();
 
-    Map<DirectionDestinationKey, List<Record>> recordsByKey = groupRecordsByDirectionAndDestination(records);
+    for (Map.Entry<Integer, List<Record>> entry : recordsByVehicleId.entrySet()) {
 
-    for (Map.Entry<DirectionDestinationKey, List<Record>> entry : recordsByKey.entrySet()) {
+      Integer key = entry.getKey();
+      List<Record> recordsForVehicle = entry.getValue();
 
-      DirectionDestinationKey key = entry.getKey();
+      AgencyAndId vehicleId = new AgencyAndId(_agencyId, _vehicleIdPrefix
+          + Integer.toString(key));
 
-      System.out.println("group=" + key.getDirection() + " dest="
-          + key.getDestinationStopId());
-
-      BlockInstance blockInstance = getBestBlockInstance(key);
+      BlockInstance blockInstance = getBestBlockInstance(recordsForVehicle);
 
       if (blockInstance == null) {
         _log.warn("no block instance found for group: key=" + key);
         continue;
       }
 
-      Map<AgencyAndId, List<Record>> recordsByStop = groupRecordsByStop(entry.getValue());
+      Map<AgencyAndId, Record> recordsByStop = groupRecordsByStop(entry.getValue());
 
-      List<VehicleRecords> allVehicleRecords = linkRecordsAlongBlock(
+      VehicleRecordCollection vehicleRecords = getVehicleRecordsForRecords(
           blockInstance, recordsByStop);
 
-      List<VehicleState> states = getLinkedVehicleRecordsAsVehicleStates(
-          blockInstance, allVehicleRecords);
-
-      Collections.sort(states, VehicleStateDescendingComparator.INSTANCE);
-
-      List<VehicleInstance> currentInstances = new ArrayList<VehicleInstance>();
-
-      List<VehicleInstance> prevVehicles = _vehiclesByDirectionDestination.get(key);
-      if (prevVehicles == null)
-        prevVehicles = Collections.emptyList();
-
-      for (VehicleState state : states) {
-        VehicleInstance prevInstance = getBestPreviousVehicleInstance(
-            prevVehicles, state);
-
-        VehicleInstance currentInstance = null;
-
-        if (prevInstance != null) {
-          prevVehicles.remove(prevInstance);
-          currentInstance = new VehicleInstance(prevInstance.getVehicleId(),
-              state);
-        } else {
-          AgencyAndId vehicleId = new AgencyAndId("40",
-              Integer.toString(_nextVehicleId++));
-          currentInstance = new VehicleInstance(vehicleId, state);
-        }
-
-        currentInstances.add(currentInstance);
+      if (vehicleRecords == null) {
+        _log.warn("no records could be mapped to the block: " + vehicleId);
+        continue;
       }
 
-      Collections.sort(currentInstances,
-          VehicleInstanceDescendingComparator.INSTANCE);
+      VehicleState state = getVehicleRecordsAsVehicleState(blockInstance,
+          vehicleRecords);
 
-      for (VehicleInstance instance : currentInstances) {
+      VehicleLocationRecord vlr = getVehicleInstanceAsVehicleLocationRecord(
+          vehicleId, state);
+      results.add(vlr);
 
-        VehicleLocationRecord vlr = getVehicleInstanceAsVehicleLocationRecord(instance);
-        results.add(vlr);
-
-        dumpVehicleInstance(instance);
-
-      }
-
-      _vehiclesByDirectionDestination.put(key, currentInstances);
+      dumpVehicleInstance(vehicleId, state);
     }
 
     if (!results.isEmpty())
       _vehicleLocationListener.handleVehicleLocationRecords(results);
   }
 
-  private Map<DirectionDestinationKey, List<Record>> groupRecordsByDirectionAndDestination(
-      List<Record> records) {
+  private BlockInstance getBestBlockInstance(List<Record> records) {
 
-    Map<DirectionDestinationKey, List<Record>> recordsByKey = new FactoryMap<DirectionDestinationKey, List<Record>>(
-        new ArrayList<Record>());
+    Record record = records.get(0);
 
-    for (Record record : records) {
-      AgencyAndId routeId = new AgencyAndId("40", record.getRouteId());
-      AgencyAndId destinationStopId = new AgencyAndId("1",
-          record.getDestinationTimepointId());
-      DirectionDestinationKey key = new DirectionDestinationKey(routeId,
-          destinationStopId, record.getDirection());
-      recordsByKey.get(key).add(record);
-    }
+    AgencyAndId routeId = new AgencyAndId(_agencyId, record.getRouteId());
 
-    return recordsByKey;
-  }
+    AgencyAndId destinationStopId = new AgencyAndId(_stopAgencyId,
+        record.getDestinationTimepointId());
 
-  private BlockInstance getBestBlockInstance(DirectionDestinationKey key) {
-
-    AgencyAndId routeId = key.getRouteId();
     long t = System.currentTimeMillis();
 
     List<BlockInstance> instances = _blockCalendarService.getActiveBlocksForRouteInTimeRange(
@@ -277,7 +224,7 @@ public class LinkRealtimeService {
       BlockStopTimeEntry lastBlockStopTime = stopTimes.get(stopTimes.size() - 1);
       StopTimeEntry lastStopTime = lastBlockStopTime.getStopTime();
       StopEntry lastStop = lastStopTime.getStop();
-      if (lastStop.getId().equals(key.getDestinationStopId()))
+      if (lastStop.getId().equals(destinationStopId))
         matchesDestination.add(instance);
     }
 
@@ -302,26 +249,23 @@ public class LinkRealtimeService {
     return m.getMinElement();
   }
 
-  private Map<AgencyAndId, List<Record>> groupRecordsByStop(List<Record> records) {
+  private Map<AgencyAndId, Record> groupRecordsByStop(List<Record> records) {
 
-    Map<AgencyAndId, List<Record>> recordsByStop = new FactoryMap<AgencyAndId, List<Record>>(
-        new ArrayList<Record>());
+    Map<AgencyAndId, Record> recordsByStop = new HashMap<AgencyAndId, Record>();
 
     for (Record record : records) {
-      AgencyAndId stopId = new AgencyAndId("1", record.getTimepointId());
-      recordsByStop.get(stopId).add(record);
+      AgencyAndId stopId = new AgencyAndId(_stopAgencyId,
+          record.getTimepointId());
+      recordsByStop.put(stopId, record);
     }
-
-    for (List<Record> recordsForStop : recordsByStop.values())
-      Collections.sort(recordsForStop,
-          RecordDescendingTimepointArrivalTimeComparator.INSTANCE);
 
     return recordsByStop;
   }
 
-  private List<VehicleRecords> linkRecordsAlongBlock(
-      BlockInstance blockInstance, Map<AgencyAndId, List<Record>> recordsByStop) {
-    List<VehicleRecords> allVehicleRecords = new ArrayList<VehicleRecords>();
+  private VehicleRecordCollection getVehicleRecordsForRecords(
+      BlockInstance blockInstance, Map<AgencyAndId, Record> recordsByStop) {
+
+    VehicleRecordCollection vehicleRecords = null;
 
     for (BlockStopTimeEntry blockStopTime : blockInstance.getBlock().getStopTimes()) {
 
@@ -329,83 +273,24 @@ public class LinkRealtimeService {
       StopEntry stop = stopTime.getStop();
       AgencyAndId stopId = stop.getId();
 
-      List<Record> recordsForStop = recordsByStop.get(stopId);
+      Record recordForStop = recordsByStop.get(stopId);
 
-      for (Record recordForStop : recordsForStop) {
+      if (recordForStop == null)
+        continue;
 
-        VehicleRecords vehicleRecords = getBestVehicleTripForRecord(
-            allVehicleRecords, blockStopTime, recordForStop);
-
-        if (vehicleRecords == null) {
-          vehicleRecords = new VehicleRecords(recordForStop, blockStopTime);
-          allVehicleRecords.add(vehicleRecords);
-        } else {
-          vehicleRecords.addRecord(recordForStop, blockStopTime);
-        }
-      }
-    }
-    return allVehicleRecords;
-  }
-
-  private VehicleRecords getBestVehicleTripForRecord(
-      List<VehicleRecords> vehicles, BlockStopTimeEntry blockStopTime,
-      Record recordForStop) {
-
-    for (VehicleRecords vehicle : vehicles) {
-
-      BlockStopTimeEntry lastBlockStopTime = vehicle.getLastBlockStopTime();
-
-      if (lastBlockStopTime.getBlockSequence() < blockStopTime.getBlockSequence()) {
-
-        Record lastRecord = vehicle.getLastRecord();
-
-        // The vehicle can't travel backwards in time
-        if (recordForStop.getTimepointTime() < lastRecord.getTimepointTime())
-          continue;
-
-        double deviationFactor = _scheduleDeviationFactor;
-
-        Pair<AgencyAndId> segment = Tuples.pair(
-            lastBlockStopTime.getStopTime().getStop().getId(),
-            blockStopTime.getStopTime().getStop().getId());
-
-        Double v = _segmetScheduleDeviationFactors.get(segment);
-
-        if (v != null)
-          deviationFactor = v;
-
-        int expectedTimeDelta = blockStopTime.getStopTime().getArrivalTime()
-            - lastBlockStopTime.getStopTime().getDepartureTime();
-        int fudge = (int) (expectedTimeDelta * deviationFactor);
-        int expectedTimeDeltaMin = expectedTimeDelta - fudge;
-        int expectedTimeDeltaMax = expectedTimeDelta + fudge;
-
-        int actualTimeDelta = (int) ((recordForStop.getTimepointTime() - lastRecord.getTimepointTime()) / 1000);
-        if (expectedTimeDeltaMin <= actualTimeDelta
-            && actualTimeDelta <= expectedTimeDeltaMax) {
-          return vehicle;
-        }
+      if (vehicleRecords == null) {
+        vehicleRecords = new VehicleRecordCollection(recordForStop,
+            blockStopTime);
+      } else {
+        vehicleRecords.addRecord(recordForStop, blockStopTime);
       }
     }
 
-    return null;
-  }
-
-  private List<VehicleState> getLinkedVehicleRecordsAsVehicleStates(
-      BlockInstance blockInstance, List<VehicleRecords> allVehicleRecords) {
-
-    List<VehicleState> states = new ArrayList<VehicleState>();
-    for (VehicleRecords vehicleRecords : allVehicleRecords) {
-      VehicleState state = getVehicleRecordsAsVehicleState(blockInstance,
-          vehicleRecords);
-      states.add(state);
-    }
-    return states;
-
+    return vehicleRecords;
   }
 
   private VehicleState getVehicleRecordsAsVehicleState(
-      BlockInstance blockInstance, VehicleRecords vehicleRecords) {
+      BlockInstance blockInstance, VehicleRecordCollection vehicleRecords) {
 
     BlockConfigurationEntry blockConfig = blockInstance.getBlock();
     List<BlockStopTimeEntry> stopTimes = blockConfig.getStopTimes();
@@ -435,44 +320,15 @@ public class LinkRealtimeService {
         vehicleRecords);
   }
 
-  private VehicleInstance getBestPreviousVehicleInstance(
-      List<VehicleInstance> prevVehicles, VehicleState state) {
-
-    for (VehicleInstance prevVehicle : prevVehicles) {
-
-      VehicleState prevState = prevVehicle.getState();
-
-      int effectiveDelta = state.getEffectiveScheduleTime()
-          - prevState.getEffectiveScheduleTime();
-
-      // The train can't backup... well, maybe just a little bit
-      if (effectiveDelta < -90) {
-        continue;
-      }
-
-      int actualDelta = (int) ((state.getUpdateTime() - prevState.getUpdateTime()) / 1000);
-
-      double effectiveDrift = Math.abs(effectiveDelta - actualDelta);
-      double maxDrift = actualDelta * .25 + 3 * 60;
-
-      if (effectiveDrift < maxDrift) {
-        return prevVehicle;
-      }
-    }
-
-    return null;
-  }
-
   private VehicleLocationRecord getVehicleInstanceAsVehicleLocationRecord(
-      VehicleInstance instance) {
+      AgencyAndId vehicleId, VehicleState state) {
 
-    VehicleState state = instance.getState();
     BlockInstance blockInstance = state.getBlockInstance();
     BlockConfigurationEntry blockConfig = blockInstance.getBlock();
     BlockEntry block = blockConfig.getBlock();
     ScheduledBlockLocation blockLocation = state.getBlockLocation();
 
-    VehicleRecords vehicleRecords = state.getRecords();
+    VehicleRecordCollection vehicleRecords = state.getRecords();
     List<TimepointPredictionRecord> timepointPredictions = getRecordsAsTimepointPredictions(vehicleRecords);
 
     VehicleLocationRecord r = new VehicleLocationRecord();
@@ -482,7 +338,7 @@ public class LinkRealtimeService {
     r.setDistanceAlongBlock(blockLocation.getDistanceAlongBlock());
     r.setTimeOfRecord(state.getUpdateTime());
     r.setTimepointPredictions(timepointPredictions);
-    r.setVehicleId(instance.getVehicleId());
+    r.setVehicleId(vehicleId);
 
     int scheduleTime = (int) ((state.getUpdateTime() - blockInstance.getServiceDate()) / 1000);
     int scheduleDeviation = (int) (scheduleTime - state.getEffectiveScheduleTime());
@@ -492,7 +348,7 @@ public class LinkRealtimeService {
   }
 
   private List<TimepointPredictionRecord> getRecordsAsTimepointPredictions(
-      VehicleRecords vehicleRecords) {
+      VehicleRecordCollection vehicleRecords) {
 
     List<Record> records = vehicleRecords.getRecords();
     List<BlockStopTimeEntry> blockStopTimes = vehicleRecords.getBlockStopTimes();
@@ -513,17 +369,15 @@ public class LinkRealtimeService {
     return results;
   }
 
-  private void dumpVehicleInstance(VehicleInstance instance) {
-    AgencyAndId vehicleId = instance.getVehicleId();
+  private void dumpVehicleInstance(AgencyAndId vehicleId, VehicleState state) {
     System.out.println("== vehicle=" + vehicleId + " ==");
-    VehicleState state = instance.getState();
     System.out.println("  effectiveScheduleTime="
         + state.getEffectiveScheduleTime());
     System.out.println("  block="
         + state.getBlockInstance().getBlock().getBlock().getId());
     System.out.println("  location=" + state.getBlockLocation().getLocation());
     System.out.println("  phase=" + state.getPhase());
-    VehicleRecords vehicleRecords = state.getRecords();
+    VehicleRecordCollection vehicleRecords = state.getRecords();
 
     for (Record record : vehicleRecords.getRecords())
       System.out.println("  " + record.getNextSign() + " "

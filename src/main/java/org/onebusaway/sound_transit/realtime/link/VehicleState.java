@@ -16,11 +16,11 @@ public class VehicleState {
 
   private final long _updateTime;
 
-  private final VehicleRecords _records;
+  private final VehicleRecordCollection _records;
 
   public VehicleState(BlockInstance blockInstance,
       ScheduledBlockLocation blockLocation, int effectiveScheduleTime,
-      EVehiclePhase phase, long updateTime, VehicleRecords records) {
+      EVehiclePhase phase, long updateTime, VehicleRecordCollection records) {
 
     if (blockInstance == null)
       throw new IllegalStateException("blockInstance is null");
@@ -59,7 +59,7 @@ public class VehicleState {
     return _updateTime;
   }
 
-  public VehicleRecords getRecords() {
+  public VehicleRecordCollection getRecords() {
     return _records;
   }
 }
