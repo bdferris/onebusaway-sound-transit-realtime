@@ -150,8 +150,8 @@ public class LinkRealtimeService {
 
     if (records.isEmpty())
       return;
-
-    System.out.println("====== CYCLE ======");
+    
+    _log.debug("=== RECORDS ===");
 
     Map<Integer, List<Record>> recordsByVehicleId = MappingLibrary.mapToValueList(
         records, "vehicleId");
@@ -190,7 +190,8 @@ public class LinkRealtimeService {
           vehicleId, state);
       results.add(vlr);
 
-      dumpVehicleInstance(vehicleId, state);
+      if( _log.isDebugEnabled() )
+        dumpVehicleInstance(vehicleId, state);
     }
 
     if (!results.isEmpty())
@@ -337,6 +338,7 @@ public class LinkRealtimeService {
     r.setServiceDate(blockInstance.getServiceDate());
     r.setDistanceAlongBlock(blockLocation.getDistanceAlongBlock());
     r.setTimeOfRecord(state.getUpdateTime());
+    r.setTimeOfLocationUpdate(state.getUpdateTime());
     r.setTimepointPredictions(timepointPredictions);
     r.setVehicleId(vehicleId);
 
