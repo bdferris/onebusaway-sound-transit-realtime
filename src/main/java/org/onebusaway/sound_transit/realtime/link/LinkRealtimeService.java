@@ -38,6 +38,7 @@ import org.onebusaway.transit_data_federation.services.blocks.ScheduledBlockLoca
 import org.onebusaway.transit_data_federation.services.transit_graph.BlockConfigurationEntry;
 import org.onebusaway.transit_data_federation.services.transit_graph.BlockEntry;
 import org.onebusaway.transit_data_federation.services.transit_graph.BlockStopTimeEntry;
+import org.onebusaway.transit_data_federation.services.transit_graph.BlockTripEntry;
 import org.onebusaway.transit_data_federation.services.transit_graph.FrequencyEntry;
 import org.onebusaway.transit_data_federation.services.transit_graph.StopEntry;
 import org.onebusaway.transit_data_federation.services.transit_graph.StopTimeEntry;
@@ -345,6 +346,10 @@ public class LinkRealtimeService {
     int scheduleTime = (int) ((state.getUpdateTime() - blockInstance.getServiceDate()) / 1000);
     int scheduleDeviation = (int) (scheduleTime - state.getEffectiveScheduleTime());
     r.setScheduleDeviation(scheduleDeviation);
+    
+    BlockTripEntry activeTrip = blockLocation.getActiveTrip();
+    if( activeTrip != null)
+      r.setTripId(activeTrip.getTrip().getId());
 
     return r;
   }
