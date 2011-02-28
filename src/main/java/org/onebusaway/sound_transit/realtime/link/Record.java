@@ -1,9 +1,9 @@
 package org.onebusaway.sound_transit.realtime.link;
 
-import org.onebusaway.gtfs.csv.schema.DateFieldMappingFactory;
-import org.onebusaway.gtfs.csv.schema.DateFieldMappingFactory.DateFormatAnnotation;
-import org.onebusaway.gtfs.csv.schema.annotations.CsvField;
-import org.onebusaway.gtfs.csv.schema.annotations.CsvFields;
+import org.onebusaway.csv_entities.schema.DateFieldMappingFactory;
+import org.onebusaway.csv_entities.schema.DateFieldMappingFactory.DateFormatAnnotation;
+import org.onebusaway.csv_entities.schema.annotations.CsvField;
+import org.onebusaway.csv_entities.schema.annotations.CsvFields;
 
 @CsvFields(filename = "records.csv", fieldOrder = {
     "vehicle_id", "route_id", "direction", "block", "service_type",
