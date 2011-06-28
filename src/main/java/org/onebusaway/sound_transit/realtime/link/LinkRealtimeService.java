@@ -78,6 +78,8 @@ public class LinkRealtimeService {
 
   private String _vehicleIdPrefix = "link_";
 
+  private Map<String, String> _stopIdMapping = new HashMap<String, String>();
+
   @Autowired
   public void setVehicleLocationListener(
       VehicleLocationListener vehicleLocationListener) {
@@ -131,6 +133,14 @@ public class LinkRealtimeService {
     _refreshInterval = refreshInterval;
   }
 
+  public void setStopIdMapping(Map<String, String> stopIdMapping) {
+    _stopIdMapping = stopIdMapping;
+  }
+
+  /****
+   * 
+   ****/
+
   @PostConstruct
   public void start() {
     _executor = Executors.newSingleThreadScheduledExecutor();
@@ -151,7 +161,7 @@ public class LinkRealtimeService {
 
     if (records.isEmpty())
       return;
-    
+
     _log.debug("=== RECORDS ===");
 
     Map<Integer, List<Record>> recordsByVehicleId = MappingLibrary.mapToValueList(
@@ -191,7 +201,7 @@ public class LinkRealtimeService {
           vehicleId, state);
       results.add(vlr);
 
-      if( _log.isDebugEnabled() )
+      if (_log.isDebugEnabled())
         dumpVehicleInstance(vehicleId, state);
     }
 
@@ -205,8 +215,12 @@ public class LinkRealtimeService {
 
     AgencyAndId routeId = new AgencyAndId(_agencyId, record.getRouteId());
 
+    String destinationTimepointId = record.getDestinationTimepointId();
+    if (_stopIdMapping.containsKey(destinationTimepointId))
+      destinationTimepointId = _stopIdMapping.get(destinationTimepointId);
+
     AgencyAndId destinationStopId = new AgencyAndId(_stopAgencyId,
-        record.getDestinationTimepointId());
+        destinationTimepointId);
 
     long t = System.currentTimeMillis();
 
@@ -256,8 +270,10 @@ public class LinkRealtimeService {
     Map<AgencyAndId, Record> recordsByStop = new HashMap<AgencyAndId, Record>();
 
     for (Record record : records) {
-      AgencyAndId stopId = new AgencyAndId(_stopAgencyId,
-          record.getTimepointId());
+      String timepointId = record.getTimepointId();
+      if (_stopIdMapping.containsKey(timepointId))
+        timepointId = _stopIdMapping.get(timepointId);
+      AgencyAndId stopId = new AgencyAndId(_stopAgencyId, timepointId);
       recordsByStop.put(stopId, record);
     }
 
@@ -346,9 +362,9 @@ public class LinkRealtimeService {
     int scheduleTime = (int) ((state.getUpdateTime() - blockInstance.getServiceDate()) / 1000);
     int scheduleDeviation = (int) (scheduleTime - state.getEffectiveScheduleTime());
     r.setScheduleDeviation(scheduleDeviation);
-    
+
     BlockTripEntry activeTrip = blockLocation.getActiveTrip();
-    if( activeTrip != null)
+    if (activeTrip != null)
       r.setTripId(activeTrip.getTrip().getId());
 
     return r;
