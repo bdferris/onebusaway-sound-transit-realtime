@@ -6,7 +6,6 @@
         <groupId>org.onebusaway</groupId>
         <version>1.1.0</version>
     </parent>
-    <groupId>org.onebusaway</groupId>
     <artifactId>onebusaway-sound-transit-realtime</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>onebusaway-sound-transit-realtime</name>
